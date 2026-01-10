@@ -41,10 +41,16 @@ using magical Zephyr macros. I know this is not the Zephyr Way. I don't care.
 ## Docs & Refs
 
 
-### Baochip-1x
+### Dev Tools
+
+- ⚠️ Updating Dabao Bootloader:
+  [xous-core/README-baochip.md](https://github.com/betrusted-io/xous-core/blob/main/README-baochip.md)
+
+
+### Bao1x
 
 These notes and documentation links should help understand peripheral IP blocks
-used in the Baochip-1x. Much of this came from the baochip discord server's
+used in the Bao1x SoC. Much of this came from the baochip discord server's
 not-rust channel.
 
 - Baochip website with assorted top-level links: https://baochip.com
@@ -104,3 +110,6 @@ These are for implementing Zephyr drivers, board definitions, etc.
 
 - Zephyr Project
   [UART API docs](https://docs.zephyrproject.org/latest/hardware/peripherals/uart.html)
+
+- Zephyr Project
+  [GPIO API docs](https://docs.zephyrproject.org/latest/hardware/peripherals/gpio.html)
