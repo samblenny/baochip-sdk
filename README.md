@@ -28,6 +28,9 @@ my Zephyr board definition for Dabao.
 
 ## Docs and Refs
 
+
+### Baochip-1x
+
 These notes and documentation links should help understand peripheral IP blocks
 used in the Baochip-1x. Much of this came from the baochip discord server's
 not-rust channel.
@@ -72,3 +75,17 @@ not-rust channel.
 
   Current no_std BIO drivers:
   [xous-core/libs/bao1x-hal/src/bio_hw.rs](https://github.com/betrusted-io/xous-core/blob/main/libs/bao1x-hal/src/bio_hw.rs)
+
+
+### Zephyr
+
+These are for implementing Zephyr drivers, board definitions, etc.
+
+- [LiteX VexRiscv](https://docs.zephyrproject.org/latest/boards/enjoydigital/litex_vexriscv/doc/index.html)
+  board definition
+
+- UART driver samples (github):
+  [zephyr/samples/uart/](https://github.com/zephyrproject-rtos/zephyr/tree/main/samples/drivers/uart)
+
+- Zephyr Project
+  [UART API docs](https://docs.zephyrproject.org/latest/hardware/peripherals/uart.html)
