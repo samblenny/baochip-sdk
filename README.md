@@ -54,23 +54,48 @@ bypass the Device Tree stuff.
   (source [README-baochip.md](https://github.com/betrusted-io/xous-core/blob/main/README-baochip.md))
 
 
-## Serial Debug Console
+## Debug Serial Port (Debug Logging)
+
+⚠️ Using **macOS** `screen -fn /dev/tty.usb... 1000000` to get a 1 Mbps serial
+monitor **won't work** because macOS screen doesn't know how to set
+non-standard baud rates. The **easy fix is use Linux**. If you REALLY want to
+use macOS, you'll need to find a program that can use the IOSSIOSPEED ioctl to
+set non-standard baud rates. The paid "Serial" app on the macOS App Store might
+work.
+
+To read debug serial port log messages:
 
 1. Solder 2.54mm header pins to your Dabao so you can put it in a breadboard.
 
-2. Find a fast USB serial adapter that supports 1 Mbps. FTDI adapters are
-   probably your best bet. CP2102 adapters might work (max baud 1M), but newer
-   CP2102N adapters are probably better (max baud 3M). Many common serial
-   adapters use unsuitable chipsets. For example, the Raspberry Pi Debug Probe
-   won't work as the RP2040 tops out at 926.1 kbps.
+2. Find a fast USB serial adapter that supports 1 Mbps. Adapters using FTDI,
+   CP2102, or CP2102N chips are a good bet. The Raspberry Pi Debug Probe seems
+   to work.
 
-3. Serial Console Wiring:
+3. Wire up your serial adapter:
 
    | FTDI Adapter | Dabao     |
    | ------------ | --------- |
    | TX           | PB13 (RX) |
    | RX           | PB14 (TX) |
    | GND          | GND       |
+
+   | Pi Debug Probe   | Dabao     |
+   | ---------------- | --------- |
+   | Orange Wire (TX) | PB13 (RX) |
+   | Yellow Wire (RX) | PB14 (TX) |
+   | Black Wire       | GND       |
+
+4. Connect the adapter, find its device with `ls /dev/tty*` or whatever, then
+   start a serial monitor with `screen -fn $ADAPTER_TTY 1000000` or whatever.
+
+5. Connect Dabao to USB. You should see `boot0 console up` and so on.
+
+
+## USB CDC Serial (Bootloader Shell, etc.)
+
+The bootloader and baremetal app both provide a simple shell interface, **but**
+you can only get to it from the USB CDC serial port. For boot1 and baremetal,
+the debug serial port just shows log messages.
 
 
 ## Docs, Refs, and Downloads
