@@ -29,6 +29,30 @@ this code once I've got it working. The point is to document how to do it.
    Arduino, CircuitPython, Lua, MicroPython, Zephyr, or whatever.
 
 
+### Intended Applications
+
+The Bao1x features are tailored to making portable devices with small displays,
+simple controls, hardware accelerated cryptography, DMA accelerated IO (UART,
+I2C, camera, SPI, SDIO, ADC), and MMU based memory protection. The CPU and BIO
+cores are relatively fast, but they don't support floating point. Tasks like
+decoding QR codes from a camera module, driving a monochrome 128x128 OLED, or
+synthesizing audio with fixed-point DSP should work well.
+
+The Bao1x doesn't have direct hardware support for a USB host interface or for
+driving high bandwidth displays. With enough effort, it's possible you might
+be able to implement that stuff with the BIO cores. But, I don't plan to pursue
+such things here. This SDK is not intended to support console style games or
+emulators. Simple games with direct button input and small SPI displays would
+probably work fine.
+
+If you want support for all of the Bao1x security features, take a look at the
+[Xous operating system](https://github.com/betrusted-io/xous-core).
+
+This SDK is meant to enable using the Bao1x as a general purpose MCU to run
+code written in C. For example, audio synthesis engines or interpreters for Lua
+or Python.
+
+
 ## Strategy
 
 The Plan:
