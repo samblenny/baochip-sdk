@@ -112,8 +112,9 @@ The Plan:
 monitor **won't work** because macOS screen doesn't know how to set
 non-standard baud rates. The **easy fix is use Linux**. If you REALLY want to
 use macOS, you'll need to find a program that can use the IOSSIOSPEED ioctl to
-set non-standard baud rates. The paid "Serial" app on the macOS App Store might
-work. NOTE: This is only an issue for UART serial. USB CDC serial is different.
+set non-standard baud rates. My [hbaud](https://github.com/samblenny/hbaud) CLI
+serial monitor works. The paid "Serial" app on the macOS App Store might work.
+NOTE: This is only an issue for UART serial. USB CDC serial is different.
 
 You might wonder, why 1M instead of 115200 or whatever? Some benefits:
 
