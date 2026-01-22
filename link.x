@@ -1,63 +1,45 @@
 MEMORY {
-	FLASH : ORIGIN = 0x60060400, LENGTH = 256K
-	RAM   : ORIGIN = 0x61000000, LENGTH = 2048K
+    FLASH : ORIGIN = 0x60060400, LENGTH = 256K
+    RAM   : ORIGIN = 0x61000000, LENGTH = 2048K
 }
 
-_stack_size = 32K;
-_heap_size = 512K;
+_data_size = SIZEOF(.data);
+_bss_size = SIZEOF(.bss);
+_ram_top = ORIGIN(RAM) + LENGTH(RAM);
 
 ENTRY(_start)
 
 SECTIONS {
-	.init :
-	{
-		KEEP(*(.text.init));
-	} > FLASH
 
-	.text : ALIGN(4)
-	{
-		KEEP(*(.text));
-	} > FLASH
+    /* Mash read-only sections together for easy extraction with objcopy */
+    .firmware : {
+        *(.text._start);  /* initialization code MUST come first */
+        *(.text*);
+        . = ALIGN(16);  /* 16 to make it look pretty in hexdump -C */
+        *(.rodata);
+        . = ALIGN(16);
+    } > FLASH
 
-	.rodata : ALIGN(4)
-	{
-		*(.rodata);
-	} > FLASH
+    /* Putting .data in its own section makes it easier to verify with
+     * objdump -h that the LMA and VMA addressing is correct.
+     */
+    .data : {
+        _data_lma = ABSOLUTE(.);
+        _data_vma = .;
+        KEEP(*(.data*));
+        . = ALIGN(16);
+    } > RAM AT > FLASH
 
-	.data : ALIGN(4)
-	{
-		_idata_start = LOADADDR(.data);
-		_data_start = .;
-		*(.data);
-		. = ALIGN(4);
-		_data_end = .;
-	} > RAM AT > FLASH
+    .bss (NOLOAD) : {
+        _bss_vma = .;
+        *(.bss);
+        . = ALIGN(16);
+    } > RAM
 
-	.bss : ALIGN(4)
-	{
-		_bss_start = .;
-		*(.bss);
-		. = ALIGN(4);
-		_bss_end = .;
-	} > RAM
-
-	.heap (NOLOAD) : ALIGN(4)
-	{
-		_heap_start = .;
-		. += _heap_size;
-		_heap_end = .;
-	} > RAM AT > RAM
-
-	.stack (NOLOAD) : ALIGN(4)
-	{
-		_stack_start = .;
-		. += _stack_size;
-		. = ALIGN(4096);  /* assume 4KB cache line */
-		_stack_end = .;
-	} > RAM AT > RAM
+    /* This stuff is useless (stack unwinding metadata, etc.) */
+    /DISCARD/ : {
+        *(.eh_frame*);
+        *(.comment*)
+        *(.riscv.attributes*)
+    }
 }
-
-ASSERT(_idata_start + SIZEOF(.data) <= ORIGIN(FLASH) + LENGTH(FLASH),
-	"ERROR: .data exceeds end of FLASH")
-
-ASSERT(_stack_end <= ORIGIN(RAM) + LENGTH(RAM), ".stack exceeds end of RAM")
