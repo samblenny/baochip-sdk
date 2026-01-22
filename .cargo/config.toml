@@ -1,0 +1,11 @@
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[target.riscv32imac-unknown-none-elf]
+linker = "rust-lld"
+rustflags = [
+    "-C", "panic=abort",
+    "-C", "opt-level=s",
+    "-C", "link-arg=-s",        # Strip debug symbols
+    "-C", "link-arg=-Tlink.x",  # Use the custom linker script
+]

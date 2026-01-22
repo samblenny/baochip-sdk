@@ -1,0 +1,12 @@
+[package]
+name = "dabao-baremetal-poc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[profile.dev]
+panic = "abort"       # Disable panic unwind
+
+[profile.release]
+panic = "abort"       # Disable panic unwind
