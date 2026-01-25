@@ -77,6 +77,7 @@
 //! - `disable_output()`: Configure pin as input
 //! - `enable_pullup()`: Enable internal pull-up
 //! - `disable_pullup()`: Disable internal pull-up
+//! - `read_input()`: Read current input state of a pin
 //! - `set_alternate_function()`: Configure pin for peripheral functions
 
 pub struct PortBPin(u16);
@@ -136,6 +137,7 @@ enum GpioPort {
 const GPIOOUT_BASE: *mut u16 = 0x5012f134 as *mut u16;
 const GPIOOE_BASE: *mut u16 = 0x5012f14c as *mut u16;
 const GPIOPU_BASE: *mut u16 = 0x5012f164 as *mut u16;
+const GPIOIN_BASE: *mut u16 = 0x5012f17c as *mut u16;
 
 // Alternate function select registers
 const AFSELBL: *mut u16 = 0x5012f008 as *mut u16;
@@ -311,6 +313,26 @@ pub fn disable_pullup(pin: GpioPin) {
         let addr = register_addr(GPIOPU_BASE, port);
         let current = core::ptr::read_volatile(addr);
         core::ptr::write_volatile(addr, current & !mask);
+    }
+}
+
+/// Read the input state of a pin.
+///
+/// Returns 1 if the pin is high, 0 if the pin is low. Only meaningful for
+/// pins configured as inputs via `disable_output()`.
+///
+/// # Safety
+///
+/// This function is safe to call because the firmware runs single-threaded.
+/// Concurrent GPIO access from multiple threads would cause data races, but
+/// that is not possible in this environment.
+#[inline]
+pub fn read_input(pin: GpioPin) -> u16 {
+    unsafe {
+        let (port, mask) = gpio_pin_to_parts(pin);
+        let addr = register_addr(GPIOIN_BASE, port);
+        let value = core::ptr::read_volatile(addr);
+        if (value & mask) != 0 { 1 } else { 0 }
     }
 }
 

@@ -18,7 +18,7 @@ SECTIONS {
         *(.text._start)  /* initialization code MUST come first */
         *(.text*)
         . = ALIGN(16);   /* 16 to make it look pretty in hexdump -C */
-        *(.rodata)
+        *(.rodata*)
         . = ALIGN(16);
     } > FLASH
 
@@ -31,7 +31,7 @@ SECTIONS {
 
     .bss (NOLOAD) : {
         _bss_vma = .;
-        *(.bss)
+        *(.bss*)
         . = ALIGN(16);
     } > RAM
 

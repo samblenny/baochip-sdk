@@ -7,6 +7,7 @@
 
 pub mod d11ctime;
 pub mod gpio;
+pub mod uart;
 
 use core::arch::asm;
 use core::panic::PanicInfo;

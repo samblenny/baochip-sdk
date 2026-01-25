@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: Copyright 2026 Sam Blenny
+//
 #![no_std]
 #![no_main]
 
