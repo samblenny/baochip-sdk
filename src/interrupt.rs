@@ -55,9 +55,6 @@ const MTVEC: u32 = 0x305; // Machine Trap Vector
 const MCAUSE: u32 = 0x342; // Machine Cause
 const MIP: u32 = 0x344; // Machine Interrupt Pending flags
 
-// VexRiscv custom CSR (not standard RISC-V)
-const MIM: u32 = 0xFFF; // Machine Interrupt Mask
-
 // ====================================================================
 // Bit Masks for CSRs
 // ====================================================================
@@ -132,19 +129,25 @@ fn csr_clear(csr: u32, bits: u32) {
     }
 }
 
-/// Write VexRiscv custom MIM (Machine Interrupt Mask) register
+/// Write VexRiscv custom MIM (Machine Interrupt Mask) register (0xBC0).
+///
+/// MIM is not a standard RISC-V CSR. It is specific to VexRiscv and controls
+/// which IRQARRAY banks can generate interrupts to the CPU.
 #[inline]
 fn csr_write_mim(value: u32) {
     unsafe {
-        asm!("csrw {0}, {1}", const MIM, in(reg) value);
+        asm!("csrw 0xbc0, {0}", in(reg) value);
     }
 }
 
-/// Set bits in MIM (Machine Interrupt Mask) register
+/// Set bits in VexRiscv custom MIM (Machine Interrupt Mask) register (0xBC0).
+///
+/// MIM is not a standard RISC-V CSR. It is specific to VexRiscv and controls
+/// which IRQARRAY banks can generate interrupts to the CPU.
 #[inline]
 fn csr_set_mim(bits: u32) {
     unsafe {
-        asm!("csrs {0}, {1}", const MIM, in(reg) bits);
+        asm!("csrs 0xbc0, {0}", in(reg) bits);
     }
 }
 
@@ -169,6 +172,8 @@ pub fn irq_setup() {
     // Store trap handler address in mtvec. Note that _trap is aligned to
     // 16-bytes by the linker script, so bits [1:0] are clear (as needed for
     // direct addressing mode).
+    crate::uart::write(b"irq_setup: before csr_write MTVEC\r\n");
+    crate::sleep(2);
     csr_write(MTVEC, handler_addr);
     crate::uart::write(b"irq_setup: C\r\n");
     crate::sleep(2);
@@ -177,16 +182,25 @@ pub fn irq_setup() {
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
     // Initially disable the full tree of interrupt sources at the top level
+    crate::uart::write(b"irq_setup: before csr_write_mim\r\n");
+    crate::sleep(2);
     csr_write_mim(0);
     crate::uart::write(b"irq_setup: D\r\n");
     crate::sleep(2);
 
+    // Ensure MIM is configured before enabling global interrupts
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+
     // Enable global machine interrupt enable (mstatus.MIE)
+    crate::uart::write(b"irq_setup: before csr_set MSTATUS\r\n");
+    crate::sleep(2);
     csr_set(MSTATUS, MSTATUS_MIE);
     crate::uart::write(b"irq_setup: E\r\n");
     crate::sleep(2);
 
     // Enable machine external interrupts (mie.MEIP)
+    crate::uart::write(b"irq_setup: before csr_set MIE\r\n");
+    crate::sleep(2);
     csr_set(MIE, MIE_MEIP);
     crate::uart::write(b"irq_setup: F\r\n");
     crate::sleep(2);
@@ -312,17 +326,15 @@ pub extern "C" fn _trap_handler_rust() -> ! {
     crate::uart::write(b"\r\n");
     crate::sleep(2);
 
-    // Read mcause and mip for debugging and dispatch
-    let mcause = csr_read(MCAUSE);
-    let mip = csr_read(MIP);
-
     // Read and print mcause
+    let mcause = csr_read(MCAUSE);
     crate::uart::write(b"mcause: ");
     crate::uart::write_hex(mcause);
     crate::uart::write(b"\r\n");
     crate::sleep(2);
 
     // Read and print mip
+    let mip = csr_read(MIP);
     crate::uart::write(b"mip: ");
     crate::uart::write_hex(mip);
     crate::uart::write(b"\r\n");
