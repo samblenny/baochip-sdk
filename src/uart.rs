@@ -80,6 +80,7 @@
 //! - getc(): Read one byte from RX if available
 //! - tick(): Start DMA for ready TX blocks
 
+use crate::interrupt;
 use core::ptr;
 
 // ============================================================================
@@ -186,8 +187,9 @@ pub fn init() {
 ///
 /// Non-blocking - returns immediately. Starts DMA if TX is idle.
 pub fn write(data: &[u8]) -> usize {
+    let was_enabled = interrupt::disable_irqs();
+    let mut written = 0;
     unsafe {
-        let mut written = 0;
         let mut block = TX_NEXT_BLOCK;
         let mut offset: usize = 0;
 
@@ -234,9 +236,11 @@ pub fn write(data: &[u8]) -> usize {
         if !TX_IN_FLIGHT {
             tick();
         }
-
-        written
     }
+    if was_enabled {
+        interrupt::enable_irqs();
+    }
+    written
 }
 
 /// Read one byte from RX if available.
@@ -262,6 +266,7 @@ pub fn getc() -> Option<u8> {
 /// Call periodically from the main event loop. Also called automatically
 /// by write() when needed.
 pub fn tick() {
+    let was_enabled = interrupt::disable_irqs();
     unsafe {
         // Ensure we see the latest DMA state
         core::sync::atomic::compiler_fence(
@@ -288,5 +293,8 @@ pub fn tick() {
                 TX_IN_FLIGHT = true;
             }
         }
+    }
+    if was_enabled {
+        interrupt::enable_irqs();
     }
 }

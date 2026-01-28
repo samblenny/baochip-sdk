@@ -53,6 +53,7 @@ const MSTATUS: u32 = 0x300; // Machine Status
 const MIE: u32 = 0x304; // Machine Interrupt Enable
 const MTVEC: u32 = 0x305; // Machine Trap Vector
 const MCAUSE: u32 = 0x342; // Machine Cause
+const MTVAL: u32 = 0x343; // Trap value or fault address
 const MIP: u32 = 0x344; // Machine Interrupt Pending flags
 
 // ====================================================================
@@ -61,8 +62,9 @@ const MIP: u32 = 0x344; // Machine Interrupt Pending flags
 
 const MSTATUS_MIE: u32 = 1 << 3; // Global interrupt enable
 const MIE_MEIP: u32 = 1 << 11; // Machine external interrupt enable
-const MCAUSE_EXTERNAL_INT: u32 = 0x8000_000B; // External interrupt code
 const MCAUSE_ILLEGAL_INST: u32 = 0x0000_0002; // Illegal instruction exception
+const MCAUSE_LOAD_ACCESS: u32 = 0x0000_0005; // Memory load caused fault
+const MCAUSE_EXTERNAL_INT: u32 = 0x8000_000B; // External interrupt code
 
 // ====================================================================
 // MIM Register Bit Masks (Machine Interrupt Mask - enable IRQARRAY banks)
@@ -84,6 +86,7 @@ fn csr_read(csr: u32) -> u32 {
             MSTATUS => asm!("csrr {0}, mstatus", out(reg) result),
             MIE => asm!("csrr {0}, mie", out(reg) result),
             MTVEC => asm!("csrr {0}, mtvec", out(reg) result),
+            MTVAL => asm!("csrr {0}, mtval", out(reg) result),
             MCAUSE => asm!("csrr {0}, mcause", out(reg) result),
             MIP => asm!("csrr {0}, mip", out(reg) result),
             _ => result = 0, // Unsupported CSR
@@ -183,21 +186,28 @@ pub fn irq_setup() {
 
     // Enable machine external interrupts (mie.MEIP)
     csr_set(MIE, MIE_MEIP);
-}
-
-/// Enable all interrupts
-pub fn enable_irq() {
-    // Enable global machine interrupt enable (mstatus.MIE)
-    csr_set(MSTATUS, MSTATUS_MIE);
 
     // Enable TIMER0 events
     csr_set_mim(MIM_BIT_TIMER0);
 }
 
-/// Disable all interrupts
-pub fn disable_all_irqs() {
+/// Enable all interrupts
+#[inline]
+pub fn enable_irqs() {
+    // Enable global machine interrupt enable (mstatus.MIE)
+    csr_set(MSTATUS, MSTATUS_MIE);
+}
+
+/// Disable all interrupts, returning previous enable status
+#[inline]
+pub fn disable_irqs() -> bool {
+    // Check if interrupts were already disabled
+    let was_enabled = csr_read(MSTATUS) & MSTATUS_MIE != 0;
+
     // Clear global interrupt enable
     csr_clear(MSTATUS, MSTATUS_MIE);
+
+    was_enabled
 }
 
 // ====================================================================
@@ -310,12 +320,17 @@ pub extern "C" fn _trap_handler_rust() -> ! {
 
         // Add more event checks here as needed (UART, USB, etc.)
     } else if mcause == MCAUSE_ILLEGAL_INST {
-        crate::uart::write(b"trap: illegal instruction\r\n");
+        crate::log!("\r\nTRAP: illegal instruction\r\n");
+        crate::sleep(2);
+        loop {}
+    } else if mcause == MCAUSE_LOAD_ACCESS {
+        let mtval = csr_read(MTVAL);
+        crate::log!("\r\nTRAP: load access, mtval=0x{:08x}", mtval);
         crate::sleep(2);
         loop {}
     } else {
         // Unknown exception
-        crate::uart::write(b"trap: unknown exception\r\n");
+        crate::log!("\r\nTRAP: mcause=0x{:08x}\r\n", mcause);
         crate::sleep(2);
         loop {}
     }

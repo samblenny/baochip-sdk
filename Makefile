@@ -1,5 +1,6 @@
 .PHONY: blinky blinky-disassemble blinky-bin-hex blinky-img-hex blinky-uf2-hex
 .PHONY: uart uart-disassemble uart-bin-hex uart-img-hex uart-uf2-hex
+.PHONY: timer0 timer0-disassemble timer0-bin-hex timer0-img-hex timer0-uf2-hex
 .PHONY: clean
 
 STABLE_LIB := $(HOME)/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib
@@ -7,6 +8,7 @@ LLVM_BIN := $(STABLE_LIB)/rustlib/x86_64-unknown-linux-gnu/bin
 TARGET_DIR := target/riscv32imac-unknown-none-elf/debug/examples
 BLINKY := $(TARGET_DIR)/blinky
 UART := $(TARGET_DIR)/uart
+TIMER0 := $(TARGET_DIR)/timer0
 
 # Rebuild from scratch every time to avoid the hassle of defining the tree
 # of dependencies between sources and outputs.
@@ -75,6 +77,39 @@ uart-img-hex:
 
 uart-uf2-hex:
 	hexdump -C $(UART).uf2 | less
+
+timer0:
+	cargo clean
+	cargo build --example timer0
+	objdump -h $(TIMER0)
+	@echo '---'
+	@echo '# Checking .data section LMA (FLASH) and VMA (RAM) addresses:'
+	@echo 'llvm-objdump -t timer0 | grep _data'
+	@$(LLVM_BIN)/llvm-objdump -t $(TIMER0) | grep _data
+	@echo '---'
+	@echo '# Extracting loadable sections to .bin file:'
+	@echo 'llvm-objcopy -O binary timer0 timer0.bin'
+	@$(LLVM_BIN)/llvm-objcopy -O binary $(TIMER0) $(TIMER0).bin
+	@echo '---'
+	@echo '# Signing .bin file:'
+	@python3 signer.py $(TIMER0).bin $(TIMER0).img
+	@echo '---'
+	@echo '# Packing signed blob as UF2:'
+	@python3 uf2ify.py $(TIMER0).img $(TIMER0).uf2
+	@echo '---'
+	cp $(TIMER0).uf2 examples/
+
+timer0-disassemble:
+	$(LLVM_BIN)/llvm-objdump -d $(TIMER0) | less
+
+timer0-bin-hex:
+	hexdump -C $(TIMER0).bin | less
+
+timer0-img-hex:
+	hexdump -C $(TIMER0).img | less
+
+timer0-uf2-hex:
+	hexdump -C $(TIMER0).uf2 | less
 
 clean:
 	cargo clean
