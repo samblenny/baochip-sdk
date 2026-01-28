@@ -11,6 +11,7 @@ pub const ACLK_HZ: u32 = 350_000_000;
 pub mod d11ctime;
 pub mod gpio;
 pub mod interrupt;
+pub mod log;
 pub mod ticktimer;
 pub mod timer0;
 pub mod uart;

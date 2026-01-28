@@ -24,10 +24,11 @@ blinky:
 	@$(LLVM_BIN)/llvm-objcopy -O binary $(BLINKY) $(BLINKY).bin
 	@echo '---'
 	@echo '# Signing .bin file:'
-	python3 signer.py $(BLINKY).bin $(BLINKY).img
+	@python3 signer.py $(BLINKY).bin $(BLINKY).img
 	@echo '---'
 	@echo '# Packing signed blob as UF2:'
-	python3 uf2ify.py $(BLINKY).img $(BLINKY).uf2
+	@python3 uf2ify.py $(BLINKY).img $(BLINKY).uf2
+	@echo '---'
 	cp $(BLINKY).uf2 examples/
 
 blinky-disassemble:

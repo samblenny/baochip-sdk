@@ -239,16 +239,6 @@ pub fn write(data: &[u8]) -> usize {
     }
 }
 
-/// Write a u32 value as "0x" followed by 8 hex digits.
-pub fn write_hex(val: u32) {
-    write(b"0x");
-    let hex_chars = b"0123456789ABCDEF";
-    for shift in [28, 24, 20, 16, 12, 8, 4, 0].iter() {
-        let nibble = ((val >> shift) & 0xF) as usize;
-        write(&[hex_chars[nibble]]);
-    }
-}
-
 /// Read one byte from RX if available.
 ///
 /// Directly polls the VALID register. Returns Some(byte) if data is

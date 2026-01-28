@@ -4,7 +4,7 @@
 #![no_std]
 #![no_main]
 extern crate dabao_baremetal_poc;
-use dabao_baremetal_poc::{gpio, ticktimer, uart};
+use dabao_baremetal_poc::{gpio, log, sleep, ticktimer, uart};
 use gpio::{AF, GpioPin};
 
 /// UART example for bao1x dabao evaluation board
@@ -30,59 +30,19 @@ pub extern "C" fn main() -> ! {
 
     loop {
         // Print message prefix
-        uart::write(b"hello, world! [millis() = ");
-
-        // Get current time and convert to decimal string
         let ms = ticktimer::millis();
-        let mut buf = [0u8; 20];
-        let len = format_u64(ms, &mut buf);
-
-        // Print the decimal milliseconds and line ending
-        uart::write(&buf[..len]);
-        uart::write(b" ms]\r\n");
+        log!("hello, world! [millis() = {}]\r\n", ms);
 
         // Wait until PC13 is high (button released)
         while gpio::read_input(GpioPin::PortC(gpio::PC13)) == 0 {
             uart::tick();
         }
-        debounce(10);
+        sleep(10); // debounce
 
         // Wait until PC13 is low (button pressed)
         while gpio::read_input(GpioPin::PortC(gpio::PC13)) != 0 {
             uart::tick();
         }
-        debounce(10);
+        sleep(10); // debounce
     }
-}
-
-/// Wait for specified milliseconds, servicing UART DMA
-fn debounce(ms: u32) {
-    let debounce_time = ticktimer::millis() + ms as u64;
-    while ticktimer::millis() < debounce_time {
-        uart::tick();
-    }
-}
-
-/// Convert u64 to decimal string, return number of bytes written
-///
-/// We implement this manually instead of using format!() because this is
-/// no_std code without allocator support. The format!() macro requires
-/// heap allocation via String, which is not available in bare-metal
-/// environments. This function writes directly to a pre-allocated buffer.
-fn format_u64(mut value: u64, buf: &mut [u8]) -> usize {
-    // Write digits in reverse order
-    let mut len = 0;
-    loop {
-        buf[len] = b'0' + (value % 10) as u8;
-        len += 1;
-        value /= 10;
-        if value == 0 {
-            break;
-        }
-    }
-
-    // Reverse the buffer to get correct digit order
-    buf[..len].reverse();
-
-    len
 }
