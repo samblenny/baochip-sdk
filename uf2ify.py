@@ -36,7 +36,6 @@ def main():
 
 def uf2ify(data, family_id, app_start_addr):
     """Convert a binary blob into UF2 format (512-byte blocks)."""
-    print(f"uf2ify data is {len(data)} bytes")
     nblocks = (len(data) + 255) // 256
     datapad = bytes(512 - 256 - 32 - 4)
     out = bytearray()

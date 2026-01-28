@@ -56,10 +56,11 @@ uart:
 	@$(LLVM_BIN)/llvm-objcopy -O binary $(UART) $(UART).bin
 	@echo '---'
 	@echo '# Signing .bin file:'
-	python3 signer.py $(UART).bin $(UART).img
+	@python3 signer.py $(UART).bin $(UART).img
 	@echo '---'
 	@echo '# Packing signed blob as UF2:'
-	python3 uf2ify.py $(UART).img $(UART).uf2
+	@python3 uf2ify.py $(UART).img $(UART).uf2
+	@echo '---'
 	cp $(UART).uf2 examples/
 
 uart-disassemble:

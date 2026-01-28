@@ -161,49 +161,28 @@ fn csr_set_mim(bits: u32) {
 /// Disables all peripheral interrupt sources, sets up mtvec, clears MIM, and
 /// enables global interrupt bits.
 pub fn irq_setup() {
-    crate::uart::write(b"irq_setup: A\r\n");
-    crate::sleep(2);
-
     // Get trap handler address (from linker script)
     let handler_addr = _trap as *const () as u32;
-    crate::uart::write(b"irq_setup: B\r\n");
-    crate::sleep(2);
 
     // Store trap handler address in mtvec. Note that _trap is aligned to
     // 16-bytes by the linker script, so bits [1:0] are clear (as needed for
     // direct addressing mode).
-    crate::uart::write(b"irq_setup: before csr_write MTVEC\r\n");
-    crate::sleep(2);
     csr_write(MTVEC, handler_addr);
-    crate::uart::write(b"irq_setup: C\r\n");
-    crate::sleep(2);
 
     // Ensure trap handler is configured before enabling interrupts
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
     // Initially disable the full tree of interrupt sources at the top level
-    crate::uart::write(b"irq_setup: before csr_write_mim\r\n");
-    crate::sleep(2);
     csr_write_mim(0);
-    crate::uart::write(b"irq_setup: D\r\n");
-    crate::sleep(2);
 
     // Ensure MIM is configured before enabling global interrupts
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
     // Enable global machine interrupt enable (mstatus.MIE)
-    crate::uart::write(b"irq_setup: before csr_set MSTATUS\r\n");
-    crate::sleep(2);
     csr_set(MSTATUS, MSTATUS_MIE);
-    crate::uart::write(b"irq_setup: E\r\n");
-    crate::sleep(2);
 
     // Enable machine external interrupts (mie.MEIP)
-    crate::uart::write(b"irq_setup: before csr_set MIE\r\n");
-    crate::sleep(2);
     csr_set(MIE, MIE_MEIP);
-    crate::uart::write(b"irq_setup: F\r\n");
-    crate::sleep(2);
 }
 
 /// Enable all interrupts
@@ -318,38 +297,15 @@ pub extern "C" fn _trap_handler_rust() -> ! {
     crate::gpio::enable_output(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
     crate::gpio::set(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
 
-    // Test hex printing function
-    crate::uart::write_hex(0x01234567);
-    crate::uart::write(b"\r\n");
-    crate::sleep(2);
-    crate::uart::write_hex(0xabcdef00);
-    crate::uart::write(b"\r\n");
-    crate::sleep(2);
-
-    // Read and print mcause
+    // Read mcause and mip for dispatch
     let mcause = csr_read(MCAUSE);
-    crate::uart::write(b"mcause: ");
-    crate::uart::write_hex(mcause);
-    crate::uart::write(b"\r\n");
-    crate::sleep(2);
-
-    // Read and print mip
     let mip = csr_read(MIP);
-    crate::uart::write(b"mip: ");
-    crate::uart::write_hex(mip);
-    crate::uart::write(b"\r\n");
-    crate::sleep(2);
 
     // Check if this is an external interrupt
     if mcause == MCAUSE_EXTERNAL_INT {
         // Check for TIMER0 event
         if mip & MIM_BIT_TIMER0 != 0 {
             timer0_handler();
-            crate::uart::write(b"trap: timer0\r\n");
-            crate::sleep(2);
-        } else {
-            crate::uart::write(b"trap: unknown mip bit\r\n");
-            crate::sleep(2);
         }
 
         // Add more event checks here as needed (UART, USB, etc.)
