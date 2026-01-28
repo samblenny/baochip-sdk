@@ -83,10 +83,11 @@ fn csr_read(csr: u32) -> u32 {
     let result: u32;
     unsafe {
         match csr {
-            MTVEC => asm!("csrr {0}, mtvec", out(reg) result),
             MSTATUS => asm!("csrr {0}, mstatus", out(reg) result),
             MIE => asm!("csrr {0}, mie", out(reg) result),
+            MTVEC => asm!("csrr {0}, mtvec", out(reg) result),
             MCAUSE => asm!("csrr {0}, mcause", out(reg) result),
+            MIP => asm!("csrr {0}, mip", out(reg) result),
             _ => result = 0, // Unsupported CSR
         }
     }
@@ -324,11 +325,27 @@ pub extern "C" fn _trap_handler_rust() -> ! {
         // Check for TIMER0 event
         if pending & MIM_BIT_TIMER0 != 0 {
             timer0_handler();
+            crate::uart::write(b"trap: timer0\r\n");
+            let t = crate::ticktimer::millis() + 3;
+            while crate::ticktimer::millis() < t {
+                crate::uart::tick();
+            }
+        } else {
+            crate::uart::write(b"trap: unknown external\r\n");
+            let t = crate::ticktimer::millis() + 3;
+            while crate::ticktimer::millis() < t {
+                crate::uart::tick();
+            }
         }
 
         // Add more event checks here as needed (UART, USB, etc.)
     } else {
         // Exception (not interrupt) - for now just halt
+        crate::uart::write(b"trap: unknown\r\n");
+        let t = crate::ticktimer::millis() + 3;
+        while crate::ticktimer::millis() < t {
+            crate::uart::tick();
+        }
         loop {}
     }
 
