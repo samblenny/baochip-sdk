@@ -54,7 +54,8 @@ const MIE: u32 = 0x304; // Machine Interrupt Enable
 const MTVEC: u32 = 0x305; // Machine Trap Vector
 const MCAUSE: u32 = 0x342; // Machine Cause
 const MTVAL: u32 = 0x343; // Trap value or fault address
-const MIP: u32 = 0x344; // Machine Interrupt Pending flags
+const MIP: u32 = 0x344; // Machine Interrupt Pending flags (RISC-V)
+const VEX_MIP: u32 = 0xfc0; // VexRISCV mip (pending interrupt bitfield tree)
 
 // ====================================================================
 // Bit Masks for CSRs
@@ -65,6 +66,12 @@ const MIE_MEIP: u32 = 1 << 11; // Machine external interrupt enable
 const MCAUSE_ILLEGAL_INST: u32 = 0x0000_0002; // Illegal instruction exception
 const MCAUSE_LOAD_ACCESS: u32 = 0x0000_0005; // Memory load caused fault
 const MCAUSE_EXTERNAL_INT: u32 = 0x8000_000B; // External interrupt code
+
+// ====================================================================
+// Bit Masks for VexRISCV MIP (pending interrupt event bitfield)
+// ====================================================================
+
+const VEX_MIP_TIMER0_BIT: u32 = 1 << 30; // TIMER0 alarm event bit
 
 // ====================================================================
 // MIM Register Bit Masks (Machine Interrupt Mask - enable IRQARRAY banks)
@@ -89,6 +96,7 @@ fn csr_read(csr: u32) -> u32 {
             MTVAL => asm!("csrr {0}, mtval", out(reg) result),
             MCAUSE => asm!("csrr {0}, mcause", out(reg) result),
             MIP => asm!("csrr {0}, mip", out(reg) result),
+            VEX_MIP => asm!("csrr {0}, 0xfc0", out(reg) result),
             _ => result = 0, // Unsupported CSR
         }
     }
@@ -227,6 +235,9 @@ pub fn disable_irqs() -> bool {
 #[unsafe(naked)]
 pub unsafe extern "C" fn _trap() -> ! {
     naked_asm!(
+        // Disable nested interrupts: save mstatus and Clear MIE (bit 3)
+        "csrrc t1, mstatus, 1 << 3",
+
         // Save original SP to mscratch
         "csrw   mscratch, sp",
 
@@ -274,12 +285,12 @@ pub unsafe extern "C" fn _trap() -> ! {
         "sw     t0, 31*4(sp)",
 
         // Save mstatus
-        "csrr   t0, mstatus",
-        "sw     t0, 32*4(sp)",
+        "sw     t1, 32*4(sp)",
 
         // Save original SP (from mscratch)
         "csrr   t0, mscratch",
         "sw     t0, 1*4(sp)",
+
 
         // Call Rust trap handler
         "call   {trap_handler}",
@@ -309,16 +320,33 @@ pub extern "C" fn _trap_handler_rust() -> ! {
 
     // Read mcause and mip for dispatch
     let mcause = csr_read(MCAUSE);
-    let mip = csr_read(MIP);
 
     // Check if this is an external interrupt
     if mcause == MCAUSE_EXTERNAL_INT {
+        // CRITICAL: VexRISCV overloads the normal RISC-V CSR named "mip" with
+        // a different meaning and a different CSR number. It's very confusing!
+        // At https://docs.riscv.org/reference/isa/priv/priv-csrs.html, mip is
+        // listed as CSR number 0x343 in the Machine Trap Handling section. At
+        // xous-core/imports/riscv-0.5.6/src/register/vexriscv/mip.rs on the
+        // bettrusted-io GitHub, mip is defined as CSR 0xFC0. And, if you look
+        // at the `let irqs_pending = mip::read();` usage in
+        // xous-core/baremetal/src/platform/bao1x/irq.rs, you can see that it's
+        // used as a bitfield corresponding to the assigned interrupt numbers
+        // listed at https://ci.betrusted.io/bao1x-cpu/interrupts.html
+
+        let pending = csr_read(VEX_MIP);
+
         // Check for TIMER0 event
-        if mip & MIM_BIT_TIMER0 != 0 {
+        if pending & VEX_MIP_TIMER0_BIT != 0 {
+            crate::log!("VEX_MIP_TIMER0_BIT\r\n");
+            crate::sleep(2);
             timer0_handler();
+        } else {
+            // Add more event checks here as needed (UART, USB, etc.)
+            crate::log!("  TRAP: external interrupt ???\r\n");
+            crate::sleep(2);
         }
 
-        // Add more event checks here as needed (UART, USB, etc.)
     } else if mcause == MCAUSE_ILLEGAL_INST {
         crate::log!("\r\nTRAP: illegal instruction\r\n");
         crate::sleep(2);
@@ -335,12 +363,14 @@ pub extern "C" fn _trap_handler_rust() -> ! {
         loop {}
     }
 
-    // Re-enable interrupts before returning
-    csr_set(MIE, MIE_MEIP);
+    // Turn off LED before returning
+    crate::gpio::clear(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
+    crate::log!("  trap returning\r\n");
+    crate::sleep(10);
 
     // Restore context and return from trap
     unsafe {
-        _resume_context(_scratch_stack as *const () as u32);
+        _resume_context();
     }
 }
 
@@ -353,49 +383,59 @@ pub extern "C" fn _trap_handler_rust() -> ! {
 /// Loads all registers from scratch page and executes mret to resume
 /// interrupted code.
 #[unsafe(naked)]
-pub unsafe extern "C" fn _resume_context(_scratch_stack: u32) -> ! {
+pub unsafe extern "C" fn _resume_context() -> ! {
     naked_asm!(
+        // Set SP to scratch page
+        "la     sp, {scratch_stack}",
+
+        // Adjust sp to match the trap frame allocation in the entry routine
+        // CAUTION: This assumes nested traps are not allowed
+        "addi sp, sp, -(36*4)",
+
         // Load all general-purpose registers
-        "lw     x1,  0*4(a0)",  // ra
-        "lw     x3,  2*4(a0)",  // gp
-        "lw     x4,  3*4(a0)",  // tp
-        "lw     x5,  4*4(a0)",  // t0
-        "lw     x6,  5*4(a0)",  // t1
-        "lw     x7,  6*4(a0)",  // t2
-        "lw     x8,  7*4(a0)",  // s0
-        "lw     x9,  8*4(a0)",  // s1
-        "lw     x10, 9*4(a0)",  // a0
-        "lw     x11, 10*4(a0)", // a1
-        "lw     x12, 11*4(a0)", // a2
-        "lw     x13, 12*4(a0)", // a3
-        "lw     x14, 13*4(a0)", // a4
-        "lw     x15, 14*4(a0)", // a5
-        "lw     x16, 15*4(a0)", // a6
-        "lw     x17, 16*4(a0)", // a7
-        "lw     x18, 17*4(a0)", // s2
-        "lw     x19, 18*4(a0)", // s3
-        "lw     x20, 19*4(a0)", // s4
-        "lw     x21, 20*4(a0)", // s5
-        "lw     x22, 21*4(a0)", // s6
-        "lw     x23, 22*4(a0)", // s7
-        "lw     x24, 23*4(a0)", // s8
-        "lw     x25, 24*4(a0)", // s9
-        "lw     x26, 25*4(a0)", // s10
-        "lw     x27, 26*4(a0)", // s11
-        "lw     x28, 27*4(a0)", // t3
-        "lw     x29, 28*4(a0)", // t4
-        "lw     x30, 29*4(a0)", // t5
-        "lw     x31, 30*4(a0)", // t6
+        "lw     x1,  0*4(sp)",  // ra
+        // skip x2 (sp) for now
+        "lw     x3,  2*4(sp)",  // gp
+        "lw     x4,  3*4(sp)",  // tp
+        "lw     x5,  4*4(sp)",  // t0
+        "lw     x6,  5*4(sp)",  // t1
+        "lw     x7,  6*4(sp)",  // t2
+        "lw     x8,  7*4(sp)",  // s0
+        "lw     x9,  8*4(sp)",  // s1
+        "lw     x10, 9*4(sp)",  // a0
+        "lw     x11, 10*4(sp)", // a1
+        "lw     x12, 11*4(sp)", // a2
+        "lw     x13, 12*4(sp)", // a3
+        "lw     x14, 13*4(sp)", // a4
+        "lw     x15, 14*4(sp)", // a5
+        "lw     x16, 15*4(sp)", // a6
+        "lw     x17, 16*4(sp)", // a7
+        "lw     x18, 17*4(sp)", // s2
+        "lw     x19, 18*4(sp)", // s3
+        "lw     x20, 19*4(sp)", // s4
+        "lw     x21, 20*4(sp)", // s5
+        "lw     x22, 21*4(sp)", // s6
+        "lw     x23, 22*4(sp)", // s7
+        "lw     x24, 23*4(sp)", // s8
+        "lw     x25, 24*4(sp)", // s9
+        "lw     x26, 25*4(sp)", // s10
+        "lw     x27, 26*4(sp)", // s11
+        "lw     x28, 27*4(sp)", // t3
+        "lw     x29, 28*4(sp)", // t4
+        "lw     x30, 29*4(sp)", // t5
+        "lw     x31, 30*4(sp)", // t6
         // Load mepc
-        "lw     t0, 31*4(a0)",
+        "lw     t0, 31*4(sp)",
         "csrw   mepc, t0",
-        // Load mstatus
-        "lw     t0, 32*4(a0)",
+        // Load original SP
+        "lw     x2, 1*4(sp)",
+        // Load mstatus (after sp to avoid interrupt with wrong sp)
+        "lw     t0, 32*4(sp)",
         "csrw   mstatus, t0",
-        // Load original SP (skip x2 for now to avoid clobbering a0)
-        "lw     x2, 1*4(a0)",
         // Return from trap (restores PC from mepc)
         "mret",
+
+        scratch_stack = sym _scratch_stack,
     );
 }
 
@@ -408,14 +448,12 @@ pub unsafe extern "C" fn _resume_context(_scratch_stack: u32) -> ! {
 /// Called from trap dispatcher when TIMER0 fires.
 /// Clears pending bit to allow next interrupt.
 fn timer0_handler() {
-    // Clear pending bit
-    const TIMER0_EV_PENDING: *mut u32 = 0xe001c018 as *mut u32;
-    unsafe {
-        core::ptr::write_volatile(TIMER0_EV_PENDING, 1);
-    }
+    // Clear pending bit and ensure timer won't accidentally re-trigger
+    crate::timer0::stop_and_clear();
 
     // Invoke callback if registered
     if let Some(callback) = crate::timer0::get_callback() {
         callback();
     }
+    crate::log!("end of callback\r\n");
 }

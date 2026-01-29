@@ -8,8 +8,8 @@ _data_lma = LOADADDR(.data);
 _data_size = SIZEOF(.data);
 _bss_size = SIZEOF(.bss);
 _ram_top = ORIGIN(RAM) + LENGTH(RAM);
-_scratch_stack = _ram_top; /* reserved for use by trap handler */
-_stack_base = _ram_top - 4K;
+_scratch_stack = _ram_top - 16; /* reserved for trap handler (DMA gutter!) */
+_stack_base = _ram_top - 4K; /* no DMA gutter here because already below top */
 
 ENTRY(_start)
 

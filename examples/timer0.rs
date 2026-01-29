@@ -16,13 +16,11 @@ pub extern "C" fn main() -> ! {
     gpio::enable_pullup(GpioPin::PortC(gpio::PC13));
 
     loop {
-        // Print beep now
+        // Print beep now (on boot and after each button press)
         log!("beep {}...", millis());
 
         // Set an alarm to print boop later using a callback function
         timer0::set_alarm_ms(2000, boop);
-
-        // Use the PROG button on PC13 to trigger another loop iteration
 
         // Wait until PC13 is high (button released)
         while gpio::read_input(GpioPin::PortC(gpio::PC13)) == 0 {

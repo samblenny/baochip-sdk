@@ -45,6 +45,7 @@ static mut TIMER0_CALLBACK: Option<fn()> = None;
 // =====================================================================
 
 const TIMER0_LOAD: *mut u32 = 0xe001c000 as *mut u32;
+const TIMER0_RELOAD: *mut u32 = 0xe001c004 as *mut u32;
 const TIMER0_EN: *mut u32 = 0xe001c008 as *mut u32;
 // const TIMER0_UPDATE_VALUE: *mut u32 = 0xe001c00c as *mut u32;
 // const TIMER0_VALUE: *const u32 = 0xe001c010 as *const u32;
@@ -82,14 +83,23 @@ pub fn set_alarm_ms(ms: u32, callback: fn()) {
         // Store callback before starting timer
         TIMER0_CALLBACK = Some(callback);
 
-        // Disable timer before reconfiguring
+        // Disable timer and zero event interrupt before reconfiguring
         core::ptr::write_volatile(TIMER0_EN, 0);
+        core::ptr::write_volatile(TIMER0_EV_ENABLE, 0);
+
+        // Clear any pending interrupt
+        core::ptr::write_volatile(TIMER0_EV_PENDING, 1);
+
+        // Ensure timer and interrupts are off before configuring
+        core::sync::atomic::compiler_fence(
+            core::sync::atomic::Ordering::SeqCst,
+        );
 
         // Set countdown value (one-shot mode)
         core::ptr::write_volatile(TIMER0_LOAD, cycles);
 
-        // Clear any pending interrupt
-        core::ptr::write_volatile(TIMER0_EV_PENDING, 1);
+        // Zero the reload value
+        core::ptr::write_volatile(TIMER0_RELOAD, 0);
 
         // Enable event interrupt generation
         core::ptr::write_volatile(TIMER0_EV_ENABLE, 1);
@@ -104,10 +114,12 @@ pub fn set_alarm_ms(ms: u32, callback: fn()) {
     }
 }
 
-/// Stop timer without clearing pending bit
-pub fn stop() {
+/// Stop timer, clear pending interrupt event, disable interrupt signalling
+pub fn stop_and_clear() {
     unsafe {
         core::ptr::write_volatile(TIMER0_EN, 0);
+        core::ptr::write_volatile(TIMER0_EV_ENABLE, 0);
+        core::ptr::write_volatile(TIMER0_EV_PENDING, 1); // write 1 to clear!
     }
 }
 
