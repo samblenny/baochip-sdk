@@ -6,100 +6,62 @@
 
 [*an aspirational blurb about what this is trying to be*:]
 
-This is a proof of concept for a C-friendly baremetal SDK to run on the Baochip
-Dabao evaluation board. Most of the work here is about drivers for the Bao1x
-peripherals. I plan to start from the xous-core repo's bao1x bootloader's
-no_std Rust drivers and work toward something more C-friendly.
+This is a baremetal SDK for the Baochip Dabao Bao1x evaluation board. Most of
+the work here is about peripheral drivers, linker scripts, firmware blob
+signing, and examples to demonstrate driver usage. My goal is to write the
+drivers in no_std Rust for safety and make the top API layer callable from
+either Rust or C for compatibility.
 
-Previously, I said I wanted this to be a Zephyr + CircuitPython port for Dabao.
-After further consideration, I changed my mind and scoped this down to just
-making an SDK with some examples and documentation. If I end up working on a
-CircuitPython port, that will happen later, in a separate project.
+Backstory: This originated as an attempt to do a Zephyr + CircuitPython port
+for Dabao. But, I changed my mind and scoped this down to just making an SDK
+with examples and docs.
 
 **CAUTION:** This is a proof of concept. I don't currently plan to maintain
 this code once I've got it working. The point is to document how to do it.
 
 
-## Goals
+## Roadmap
 
-1. Create a lightweight SDK to facilitate Dabao board initialization and
-   peripheral access for timers, GPIO, UART, I2C, SPI, TRNG, USB, and so on.
+1. Implement Rust drivers and usage examples for timers, GPIO, UART, and USB
+   CDC-ACM serial.
 
-2. Provide an API that could potentially be used to implement board support for
-   Arduino, CircuitPython, Lua, MicroPython, Zephyr, or whatever.
+2. Add a C FFI layer over the drivers and port the examples to C. This will be
+   mostly about Makefile and linker script tricks to get a rust library working
+   with C application code.
 
+3. Figure out how to build rv32e machine code blobs to run on the BIO cores and
+   how to get them working with rv32imac code for the main CPU. This will
+   involve more Makefile and linker script tricks.
 
-Maybes (these would be nice to have but perhaps too ambitious):
+4. Do a documentation pass to make sure all the above are explained clearly.
 
-1. USB UVC video output as a capture-card-friendly display option?
+5. *Maybe:* Come back around for a USB CDC-NCM and UDP/IP stack pass. The Bao1x
+   has a relatively fast FS/HS USB controller but it only supports 4 endpoints.
+   Assuming 2 endpoints will always be used for CDC-ACM serial, that doesn't
+   leave much room for other modes of IO. Using the second pair of endpoints
+   for a virtual ethernet link would allow muxing whatever other types of IO
+   you might want over IP.
 
-2. USB audio output?
+   For example, in theory, Dabao could run GUI apps using WebRTC to a tethered
+   host PC for video output, audio output, and human input. WebRTC would
+   require a UDP/IP stack, an RTP server with DTLS encryption, a VP8 video
+   codec, and an Opus audio codec. To access the virtual console, you would use
+   a web client page served from a secure context like GitHub Pages.
 
-3. USB CDC-ECM networking with HTTP server and HTML GUI? The idea here is
-   enabling interactive graphical apps without the need for high bandwidth
-   display interface hardware. Possible applications: personal organizer or
-   game apps with dabao-managed encrypted storage (ReRAM or SD card) where your
-   data is somewhat firewalled off from the host computer, HTML games that use
-   the host computer's GPU but store save files on dabao, low-latency audio
-   synths with with Lua scripting (running on dabao) and GUI controls (accessed
-   using host computer's browser). Main potential pitfalls: browser security
-   policy limitations on content from HTTP pages (secure context policies).
-
-
-### Intended Applications
-
-The Bao1x features are tailored to making portable devices with small displays,
-simple controls, hardware accelerated cryptography, DMA accelerated IO (UART,
-I2C, camera, SPI, SDIO, ADC), and MMU based memory protection. The CPU and BIO
-cores are relatively fast, but they don't support floating point. Tasks like
-decoding QR codes from a camera module, driving a monochrome 128x128 OLED,
-driving LED strips, or synthesizing audio with fixed-point DSP should work
-well.
-
-The Bao1x doesn't have direct hardware support for a USB host interface or for
-driving high bandwidth displays. With enough effort, it's possible you might
-be able to implement that stuff with the BIO cores. But, I don't plan to pursue
-such things here. This SDK is not intended to support console style games or
-emulators. Simple games with direct button input and small SPI displays would
-probably work fine.
-
-If you want support for all of the Bao1x security features, take a look at the
-[Xous operating system](https://github.com/betrusted-io/xous-core).
-
-This SDK is meant to enable using the Bao1x as a general purpose MCU to run
-code written in C. For example, audio synthesis engines or interpreters for Lua
-or Python.
+   The point of WebRTC would be to let you run low latency apps on Dabao, with
+   retro-emulator quality sound and graphics, over a web API that lets you
+   avoid the burden of maintaining multiple native apps. If you didn't care
+   about using the WebRTC API for synchronized audio and video playback, a much
+   simpler WebSocket-based protocol stack should work. If you didn't care about
+   the cross-platform advantages of web apps, you could do IO over raw sockets
+   from your language of choice.
 
 
-## Strategy
-
-The Plan:
-
-1. Document bao1x bootloader requirements for signed UF2 firmware images.
-
-2. Write Python tooling to create signed UF2 firmware images. The point of this
-   is to allow for a dev workflow that doesn't depend on Rust tools from the
-   xous-core repo.
-
-3. Get simple examples working with Rust code (blinky, hello world, etc) by
-   adapting peripheral drivers from the Dabao bootloader (from xous-core).
-
-4. Get simple examples working with C code by either wrapping the Rust drivers
-   in a C FFI or reimplementing the drivers in C.
-
-5. Once I have good serial console support working, implement more peripheral
-   support (I2C sensors, SPI displays, USB, etc).
-
-
-## Building Examples
+## Building the Examples
 
 This uses a Makefile to orchestrate `cargo build` along with some llvm tools
 for post build binary manipulation and a couple Python scripts to sign and UF2
 pack the firmware blob.
-
-The key things to notice in the output below are the sizes and LMA/VMA
-addresses for the .firmware and .data sections. Note that .firmware is a
-combination of .text and .rodata (see link.x linker script for details).
 
 
 ### examples/blinky.rs
@@ -147,6 +109,7 @@ signed blob file size is 1712 bytes
 uf2ify data is 1712 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
 ```
+
 
 ### examples/uart.rs
 
@@ -200,6 +163,8 @@ UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
 - Bunnie says the GPIO uses a 22 nm cell that can do **3.3V** IO with **12mA**
   current drive and **2kV HBM** ESD protection.
 
+- GPIO outputs **can do Pull-Up**, but **pull-down is not supported**.
+
 - ️⚡️🔥☠️ **DO NOT USE 5V**. IO is not 5V tolerant.
 
 - Dabao v3 schematic:
@@ -211,20 +176,13 @@ UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
 
 ## UART Serial Console
 
-⚠️ Using **macOS** `screen -fn /dev/tty.usb... 1000000` to get a 1 Mbps serial
-monitor **won't work** because macOS screen doesn't know how to set
-non-standard baud rates. The **easy fix is use Linux**. If you REALLY want to
-use macOS, you'll need to find a program that can use the IOSSIOSPEED ioctl to
-set non-standard baud rates. My [hbaud](https://github.com/samblenny/hbaud) CLI
-serial monitor works. The paid "Serial" app on the macOS App Store might work.
-NOTE: This is only an issue for UART serial. USB CDC serial is different.
-
-You might wonder, why 1M instead of 115200 or whatever? Some benefits:
-
-- Faster baud rate means faster boot times without sacrificing logging detail.
-
-- 1M is easy to derive with low error by dividing down the system clock, while
-  legacy baud rates require PLL scaling that gets jittery as you go faster.
+For UART serial debug output, you need a serial monitor that can do 1Mbaud. On
+Linux, this is easy. But, on macOS, you need a serial monitor that uses the
+IOSSIOSPEED ioctl to set non-standard baud rates (`screen` won't work).
+Homebrew's [picocom](https://formulae.brew.sh/formula/picocom) reportedly
+works. My [hbaud](https://github.com/samblenny/hbaud) works. The paid "Serial"
+app on the App Store might work. NOTE: This is for UART serial. USB CDC is
+different.
 
 To read debug serial port log messages:
 
@@ -342,8 +300,8 @@ In-system keys have been generated
 
 ## USB CDC Serial Console
 
-The bootloader and baremetal app both provide a simple shell interface. The
-boot log messages always go to the UART serial port, but the shell binding
+The Baochip bootloader and baremetal app both provide a simple shell interface.
+The boot log messages always go to the UART serial port, but the shell binding
 depends on whether the USB port is connected to power only or to a USB host:
 
 - Connected to Power Only: Shell binding goes to UART serial port. In this
@@ -459,13 +417,8 @@ the developer key that's available at
 [betrusted-io/xous-core/devkey/dev.key](https://github.com/betrusted-io/xous-core/blob/main/devkey/dev.key).
 
 The xous-core repo includes tools to go from ELF binary, to signed ELF binary,
-to bootloader-ready UF2 file. I'll need to implement an equivalent of that
-workflow for C binaries that link to Rust drivers through an FFI wrapper.
-Ideally, I'd like tooling that works without a dependency on cloning the
-xous-core repo or invoking `cargo`. Definitely I want to avoid using `xtask`.
-
-These scripts and tools from xous-core are involved in signing and UF2
-creation:
+to bootloader-ready UF2 file. These scripts and tools from xous-core are
+involved in signing and UF2 creation:
 
 - Windows PowerShell script to sign and deploy official build artifacts for
   Dabao using a hardware signing token:<br>
@@ -593,6 +546,9 @@ Bunnie says, when the Bao1x bootloader jumps to the initial JAL instruction at
 the start of the signed blob in ReRAM, interrupts are guaranteed to be off.
 Also, at that point, the UDMA UART baud rate, buffers, and clocks will be set
 up and ready to use (but it's best to re-initialize them anyway).
+
+
+## MISC Notes
 
 Some relevant UDMA UART code snippets from xous-core:
 
