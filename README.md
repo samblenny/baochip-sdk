@@ -499,9 +499,9 @@ operation to `sign-image` invoked with the baremetal bao1x options listed
 above. The point of my signer script is to make it possible to sign without
 pulling in xous-core as a dependency.
 
-The signer still requires that you convert the ELF file to a binary blob of
-object code in the style of `copy-object`. But, it would probably also work to
-use gcc's `objcopy` tool. (I haven't tried that yet.)
+The signer requires that you convert the ELF file to a binary blob of machine
+code in the style of `copy-object`. My Makefile does the ELF to machine code
+extraction step using `llvm-objcopy`, with some help from the linker script.
 
 
 ## Understanding the Blob Format and Early Boot
