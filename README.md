@@ -548,7 +548,7 @@ Also, at that point, the UDMA UART baud rate, buffers, and clocks will be set
 up and ready to use (but it's best to re-initialize them anyway).
 
 
-## MISC Notes
+## UDMA Notes
 
 Some relevant UDMA UART code snippets from xous-core:
 
