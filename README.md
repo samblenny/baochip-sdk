@@ -64,6 +64,57 @@ for post build binary manipulation and a couple Python scripts to sign and UF2
 pack the firmware blob.
 
 
+### examples/c_main_wrapper.rs (C linked to Rust)
+
+This one uses C for the application logic (hello world) and Rust for the
+hardware drivers. The C code has a hello world that gets linked with picolibc
+and a Rust wrapper. The Rust code initializes the hardware, provides a UART
+driver, and calls into `c_main()` from the C library. The wrapper is at
+[examples/c_main_wrapper.rs](examples/c_main_wrapper.rs) and the C code is at
+[examples/hello_c.c](examples/hello_c.c).
+
+```
+$ make hello_c
+cargo clean
+     Removed 54 files, 1.7MiB total
+mkdir -p target/riscv32imac-unknown-none-elf/debug/examples/examples
+---
+# Compiling C code...
+riscv64-unknown-elf-gcc -I/usr/lib/picolibc/riscv64-unknown-elf/include -march=rv32imac -mabi=ilp32 -c examples/hello_c.c \
+	-o target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
+---
+# Archiving C library...
+riscv64-unknown-elf-ar rcs target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
+	target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
+---
+# Building Rust wrapper...
+RUSTFLAGS="-l hello_c -l c \
+	-L target/riscv32imac-unknown-none-elf/debug/examples \
+	-L /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32 \
+	-C panic=abort \
+	-C opt-level=s \
+	-C debuginfo=none \
+	-C link-arg=-Tlink.x" \
+	cargo build --example c_main_wrapper \
+	--target riscv32imac-unknown-none-elf
+   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+---
+/home/sam/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-objcopy -O binary target/riscv32imac-unknown-none-elf/debug/examples/c_main_wrapper \
+	target/riscv32imac-unknown-none-elf/debug/examples/hello_c.bin
+---
+python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/hello_c.bin target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img
+binary payload size is 19080 bytes
+Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img
+---
+python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2
+signed blob file size is 19848 bytes
+UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2
+---
+cp target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2 examples/
+```
+
+
 ### examples/blinky.rs
 
 See comments in [examples/blinky.rs](examples/blinky.rs) for more details on
