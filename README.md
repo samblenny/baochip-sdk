@@ -42,19 +42,37 @@ this code once I've got it working. The point is to document how to do it.
    for a virtual ethernet link would allow muxing whatever other types of IO
    you might want over IP.
 
-   For example, in theory, Dabao could run GUI apps using WebRTC to a tethered
-   host PC for video output, audio output, and human input. WebRTC would
-   require a UDP/IP stack, an RTP server with DTLS encryption, a VP8 video
-   codec, and an Opus audio codec. To access the virtual console, you would use
-   a web client page served from a secure context like GitHub Pages.
 
-   The point of WebRTC would be to let you run low latency apps on Dabao, with
-   retro-emulator quality sound and graphics, over a web API that lets you
-   avoid the burden of maintaining multiple native apps. If you didn't care
-   about using the WebRTC API for synchronized audio and video playback, a much
-   simpler WebSocket-based protocol stack should work. If you didn't care about
-   the cross-platform advantages of web apps, you could do IO over raw sockets
-   from your language of choice.
+## Dev Environment Setup
+
+These instructions are for Debian 13 (Trixie), but they should probably work
+with minimal modifications on whatever the latest Ubuntu LTS release is.
+You're on your own for adapting to other Linux flavors, Windows, or macOS.
+
+1. Install Rust using the rustup install procedure at:
+   [rust-lang.org/learn/get-started/](https://rust-lang.org/learn/get-started/)
+
+   If you're allergic to piping curl into a shell, download the script on your
+   own first and give it a read before you run it. You might also consider
+   selecting the script's "Customize installation" option and telling it not to
+   automatically modify your PATH, then modify PATH manually yourself.
+
+2. Install the riscv32imac-unknown-none-elf target with rustup:
+
+   ```
+   rustup target add riscv32imac-unknown-none-elf
+   ```
+
+3. Install gcc rv32 compiler, binutils, and picolibc:
+
+   ```
+   sudo apt install binutils-riscv64-unknown-elf gcc-riscv64-unknown-elf \
+     picolibc-riscv64-unknown-elf
+   ```
+
+   Picolibc includes are at `/usr/lib/picolibc/riscv64-unknown-elf/include`,
+   and `/usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32` has
+   the release builds of the libraries. This is for Debian. YMMV for Ubuntu.
 
 
 ## Building the Examples
@@ -436,29 +454,6 @@ signing, and flashing apps for Baochip:
 
 1. https://betrusted.io/xous-book/ch01-02-hello-world.html
 2. https://github.com/betrusted-io/xous-core/blob/main/README-baochip.md
-
-
-## Dev Environment Setup
-
-These instructions are for Debian 13 (Trixie), but they should probably work
-with minimal modifications on whatever the latest Ubuntu LTS release is.
-You're on your own for adapting to other Linux flavors, Windows, or macOS.
-
-1. Install Rust using the rustup install procedure at:
-   [rust-lang.org/learn/get-started/](https://rust-lang.org/learn/get-started/)
-
-   If you're allergic to piping curl into a shell, download the script on your
-   own first and give it a read before you run it. You might also consider
-   selecting the script's "Customize installation" option and telling it not to
-   automatically modify your PATH, then modify PATH manually yourself.
-
-2. Install the riscv32imac-unknown-none-elf target with rustup:
-
-   ```
-   rustup target add riscv32imac-unknown-none-elf
-   ```
-
-**TODO: Finish this**
 
 
 ## Binary Signing and UF2 Notes
