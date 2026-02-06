@@ -66,7 +66,8 @@ You're on your own for adapting to other Linux flavors, Windows, or macOS.
 3. Install gcc rv32 compiler, binutils, and picolibc:
 
    ```
-   sudo apt install binutils-riscv64-unknown-elf gcc-riscv64-unknown-elf \
+   sudo apt install binutils-riscv64-unknown-elf \
+     gcc-riscv64-unknown-elf \
      picolibc-riscv64-unknown-elf
    ```
 
