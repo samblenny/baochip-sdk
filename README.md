@@ -4,38 +4,32 @@
 
 **DRAFT: WORK IN PROGRESS**
 
-[*an aspirational blurb about what this is trying to be*:]
-
 This is a baremetal SDK for the Baochip Dabao Bao1x evaluation board. Most of
 the work here is about peripheral drivers, linker scripts, firmware blob
-signing, and examples to demonstrate driver usage. My goal is to write the
-drivers in no_std Rust for safety and make the top API layer callable from
-either Rust or C for compatibility.
+signing, and examples to demonstrate driver usage. The strategy here is to do
+drivers in no_std Rust for safety and make the public API usable from both Rust
+and C for compatibility.
 
-Backstory: This originated as an attempt to do a Zephyr + CircuitPython port
-for Dabao. But, I changed my mind and scoped this down to just making an SDK
-with examples and docs.
-
-**CAUTION:** This is a proof of concept. I don't currently plan to maintain
+**CAUTION:** This is a proof of concept. I make no promises about maintaining
 this code once I've got it working. The point is to document how to do it.
 
 
 ## Roadmap
 
-1. Implement Rust drivers and usage examples for timers, GPIO, UART, and USB
-   CDC-ACM serial.
+1. ✅ Implement Rust drivers and usage examples for timers, GPIO, and UART.
 
-2. Add a C FFI layer over the drivers and port the examples to C. This will be
-   mostly about Makefile and linker script tricks to get a rust library working
-   with C application code.
+2. ✅ Add a C FFI layer over the drivers.
 
-3. Figure out how to build rv32e machine code blobs to run on the BIO cores and
-   how to get them working with rv32imac code for the main CPU. This will
-   involve more Makefile and linker script tricks.
+3. Get MicroPython working with the minimal set of drivers.
 
-4. Do a documentation pass to make sure all the above are explained clearly.
+4. Add USB CDC-ACM serial support.
 
-5. *Maybe:* Come back around for a USB CDC-NCM and UDP/IP stack pass. The Bao1x
+5. Figure out how to build rv32e machine code blobs to run on the BIO cores and
+   how to get them working with rv32imac code for the main CPU.
+
+6. Do a documentation pass to make sure all the above are explained clearly.
+
+6. *Maybe:* Come back around for a USB CDC-NCM and UDP/IP stack pass. The Bao1x
    has a relatively fast FS/HS USB controller but it only supports 4 endpoints.
    Assuming 2 endpoints will always be used for CDC-ACM serial, that doesn't
    leave much room for other modes of IO. Using the second pair of endpoints
@@ -94,12 +88,13 @@ driver, and calls the `main()` exported by the C library. The C code is at
 ```
 $ make hello_c
 cargo clean
-     Removed 43 files, 17.7MiB total
+     Removed 43 files, 17.8MiB total
 mkdir -p target/riscv32imac-unknown-none-elf/debug/examples
 ---
 # Compiling C code...
 riscv64-unknown-elf-gcc \
 	-I/usr/lib/picolibc/riscv64-unknown-elf/include -march=rv32imac -mabi=ilp32 \
+	-I. \
 	-c examples/hello_c.c \
 	-o target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
 ---
@@ -111,7 +106,7 @@ riscv64-unknown-elf-ar rcs \
 # Building Rust SDK library (libdabao_sdk.a)...
 cargo build --lib
    Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
-    Finished `dev` profile [optimized] target(s) in 0.18s
+    Finished `dev` profile [optimized] target(s) in 0.19s
 ---
 # Linking C library with Rust library...
 riscv64-unknown-elf-gcc \
@@ -128,11 +123,11 @@ riscv64-unknown-elf-gcc \
 llvm-objcopy -O binary hello_c.elf hello_c.bin
 ---
 # Signing .bin file:
-binary payload size is 22040 bytes
+binary payload size is 22408 bytes
 Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img
 ---
 # Packing signed blob as UF2:
-signed blob file size is 22808 bytes
+signed blob file size is 23176 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2
 ---
 cp target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2 examples/
@@ -147,10 +142,10 @@ what this does.
 ```
 $ make blinky
 cargo clean
-     Removed 54 files, 9.7MiB total
+     Removed 43 files, 17.8MiB total
 cargo build --example blinky
    Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
-    Finished `dev` profile [optimized] target(s) in 0.24s
+    Finished `dev` profile [optimized] target(s) in 0.32s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
 
 target/riscv32imac-unknown-none-elf/debug/examples/blinky:     file format elf32-little
@@ -182,52 +177,6 @@ signed blob file size is 8192 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
 ---
 cp target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2 examples/
-```
-
-
-### examples/uart.rs
-
-See comments in [examples/uart.rs](examples/uart.rs) for more details on what
-this does.
-
-```
-$ make uart
-cargo clean
-     Removed 43 files, 17.7MiB total
-cargo build --example uart
-   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
-    Finished `dev` profile [optimized] target(s) in 0.25s
-objdump -h target/riscv32imac-unknown-none-elf/debug/examples/uart
-
-target/riscv32imac-unknown-none-elf/debug/examples/uart:     file format elf32-little
-
-Sections:
-Idx Name          Size      VMA       LMA       File off  Algn
-  0 .firmware     00002410  60060300  60060300  00000300  2**2
-                  CONTENTS, ALLOC, LOAD, READONLY, CODE
-  1 .data         00000010  61000000  60062710  00003000  2**2
-                  CONTENTS, ALLOC, LOAD, DATA
-  2 .bss          00000020  61000010  61000010  00003010  2**2
-                  ALLOC
----
-# Checking .data section LMA (FLASH) and VMA (RAM) addresses:
-llvm-objdump -t uart | grep _data
-60062710 g       *ABS*	00000000 _data_lma
-61000000 g       .data	00000000 _data_vma
-00000010 g       *ABS*	00000000 _data_size
----
-# Extracting loadable sections to .bin file:
-llvm-objcopy -O binary uart uart.bin
----
-# Signing .bin file:
-binary payload size is 9248 bytes
-Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/uart.img
----
-# Packing signed blob as UF2:
-signed blob file size is 10016 bytes
-UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
----
-cp target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2 examples/
 ```
 
 
