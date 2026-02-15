@@ -18,8 +18,8 @@ LIBC_DIR := /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32
 CFLAGS := -I/usr/lib/picolibc/riscv64-unknown-elf/include \
 	-march=rv32imac -mabi=ilp32
 
-# Build target/riscv32imac-unknown-none-elf/release/libdabao_sdk.a
 release:
+	@echo building target/riscv32imac-unknown-none-elf/release/libdabao_sdk.a
 	cargo clean
 	cargo build --lib --release
 
