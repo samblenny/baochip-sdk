@@ -24,6 +24,7 @@ hello_c:
 	@echo "# Compiling C code..."
 	riscv64-unknown-elf-gcc \
 		$(CFLAGS) \
+		-I. \
 		-c examples/hello_c.c \
 		-o $(EXAMPLES)/hello_c.o
 	@echo '---'

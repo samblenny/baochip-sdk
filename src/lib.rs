@@ -60,8 +60,7 @@ pub extern "C" fn _start() -> ! {
 ///
 /// Blocks until the specified time has elapsed, calling uart::tick()
 /// periodically to service the TX DMA queue.
-#[unsafe(no_mangle)]
-pub extern "C" fn sleep(ms: u32) {
+pub fn sleep(ms: u32) {
     let end_time = ticktimer::millis() + ms as u64;
     while ticktimer::millis() < end_time {
         uart::tick();
