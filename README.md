@@ -165,7 +165,7 @@ $ diskutil unmountDisk /dev/disk4   # assumes /Volumes/BAOCHIP was /dev/disk4s1
 Unmount of all volumes on disk4 was successful
 ```
 
-After the disk is unmounted, press the Dabao PROG buttton to run the code
+After the disk is unmounted, press the Dabao PROG button to run the code
 (assuming your dabao bootloader is configured with bootwait enabled).
 
 
