@@ -1,4 +1,4 @@
-.PHONY: lib
+.PHONY: release
 .PHONY: hello_c
 .PHONY: blinky blinky-disassemble blinky-bin-hex blinky-img-hex blinky-uf2-hex
 .PHONY: uart uart-disassemble uart-bin-hex uart-img-hex uart-uf2-hex
@@ -18,10 +18,10 @@ LIBC_DIR := /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32
 CFLAGS := -I/usr/lib/picolibc/riscv64-unknown-elf/include \
 	-march=rv32imac -mabi=ilp32
 
-# Build target/riscv32imac-unknown-none-elf/debug/libdabao_sdk.a
-lib:
+# Build target/riscv32imac-unknown-none-elf/release/libdabao_sdk.a
+release:
 	cargo clean
-	cargo build --lib
+	cargo build --lib --release
 
 hello_c:
 	cargo clean
