@@ -24,6 +24,8 @@ SECTIONS {
         . = ALIGN(16);   /* 16 to make it look pretty in hexdump -C */
         *(.rodata*)
         . = ALIGN(16);
+        *(.srodata*)
+        . = ALIGN(16);
     } > FLASH
 
     /* This gets its own section to make the LMA & VMA addressing clear */
@@ -32,11 +34,15 @@ SECTIONS {
         __global_pointer = . + 0x800; /* for initializing gp */
         KEEP(*(.data*))
         . = ALIGN(16);
+        KEEP(*(.sdata*))
+        . = ALIGN(16);
     } > RAM AT > FLASH
 
     .bss (NOLOAD) : {
         _bss_vma = .;
         *(.bss*)
+        . = ALIGN(16);
+        *(.sbss*)
         . = ALIGN(16);
     } > RAM
 
