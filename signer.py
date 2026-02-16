@@ -37,6 +37,7 @@ SIGBLOCK_LEN = 768
 # Length of SignedBlob's header prefix (include signature, exclude sealed_data)
 SBLOB_LEN = 132
 
+ANTIROLLBACK_CODE = 1
 
 class Pubkey:
     def __init__(self, pk, tag):
@@ -103,7 +104,7 @@ class SealedData:
         # See enum in xous-core/libs/bao1x-api/src/signatures.rs and usage in
         # xous-core/src/toos/sign_image.rs. Baremetal function code is 6.
         self.function_code = function_code or 6                      # u32
-        self.reserved = 0                                            # u32
+        self.anitrollback = ANTIROLLBACK_CODE                        # u32
         self.min_semver = min_semver or bytearray(16)                # [u8;16]
         self.semver = semver or bytearray(16)                        # [u8;16]
         self.pubkeys = b''.join([bytes(pk) for pk in PUBKEYS])       # [u8;144]
@@ -125,7 +126,7 @@ class SealedData:
             self.magic[0], self.magic[1],
             self.signed_len,
             self.function_code,
-            self.reserved,
+            self.anitrollback,
             self.min_semver,
             self.semver,
             self.pubkeys
