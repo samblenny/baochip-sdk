@@ -1,6 +1,6 @@
 MEMORY {
     /* 0x60300 here matches the bootloader's initial jump to 768 */
-    FLASH : ORIGIN = 0x60060300, LENGTH = 256K
+    FLASH : ORIGIN = 0x60060300, LENGTH = 2096384  /* 2M - 768 */
     RAM   : ORIGIN = 0x61000000, LENGTH = 2048K
 }
 
