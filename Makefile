@@ -1,8 +1,9 @@
 .PHONY: release
 .PHONY: hello_c
 .PHONY: blinky blinky-disassemble blinky-bin-hex blinky-img-hex blinky-uf2-hex
-.PHONY: uart uart-disassemble uart-bin-hex uart-img-hex uart-uf2-hex
 .PHONY: timer0 timer0-disassemble timer0-bin-hex timer0-img-hex timer0-uf2-hex
+.PHONY: uart uart-disassemble uart-bin-hex uart-img-hex uart-uf2-hex
+.PHONY: usb_acm
 .PHONY: clean
 
 STABLE_LIB := $(HOME)/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib
@@ -10,8 +11,9 @@ LLVM_BIN := $(STABLE_LIB)/rustlib/x86_64-unknown-linux-gnu/bin
 TARGET_DIR := target/riscv32imac-unknown-none-elf/debug
 EXAMPLES := $(TARGET_DIR)/examples
 BLINKY := $(EXAMPLES)/blinky
-UART := $(EXAMPLES)/uart
 TIMER0 := $(EXAMPLES)/timer0
+UART := $(EXAMPLES)/uart
+USB_ACM := $(EXAMPLES)/usb_acm
 
 # Picolibc include and lib paths
 LIBC_DIR := /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32
@@ -101,6 +103,39 @@ blinky-img-hex:
 blinky-uf2-hex:
 	hexdump -C $(BLINKY).uf2 | less
 
+timer0:
+	cargo clean
+	cargo build --example timer0
+	objdump -h $(TIMER0)
+	@echo '---'
+	@echo '# Checking .data section LMA (FLASH) and VMA (RAM) addresses:'
+	@echo 'llvm-objdump -t timer0 | grep _data'
+	@$(LLVM_BIN)/llvm-objdump -t $(TIMER0) | grep _data
+	@echo '---'
+	@echo '# Extracting loadable sections to .bin file:'
+	@echo 'llvm-objcopy -O binary timer0 timer0.bin'
+	@$(LLVM_BIN)/llvm-objcopy -O binary $(TIMER0) $(TIMER0).bin
+	@echo '---'
+	@echo '# Signing .bin file:'
+	@python3 signer.py $(TIMER0).bin $(TIMER0).img
+	@echo '---'
+	@echo '# Packing signed blob as UF2:'
+	@python3 uf2ify.py $(TIMER0).img $(TIMER0).uf2
+	@echo '---'
+	cp $(TIMER0).uf2 examples/
+
+timer0-disassemble:
+	$(LLVM_BIN)/llvm-objdump -d $(TIMER0) | less
+
+timer0-bin-hex:
+	hexdump -C $(TIMER0).bin | less
+
+timer0-img-hex:
+	hexdump -C $(TIMER0).img | less
+
+timer0-uf2-hex:
+	hexdump -C $(TIMER0).uf2 | less
+
 uart:
 	cargo clean
 	cargo build --example uart
@@ -134,38 +169,26 @@ uart-img-hex:
 uart-uf2-hex:
 	hexdump -C $(UART).uf2 | less
 
-timer0:
+usb_acm:
 	cargo clean
-	cargo build --example timer0
-	objdump -h $(TIMER0)
+	cargo build --example usb_acm
+	objdump -h $(USB_ACM)
 	@echo '---'
 	@echo '# Checking .data section LMA (FLASH) and VMA (RAM) addresses:'
-	@echo 'llvm-objdump -t timer0 | grep _data'
-	@$(LLVM_BIN)/llvm-objdump -t $(TIMER0) | grep _data
+	@echo 'llvm-objdump -t usb_acm | grep _data'
+	@$(LLVM_BIN)/llvm-objdump -t $(USB_ACM) | grep _data
 	@echo '---'
 	@echo '# Extracting loadable sections to .bin file:'
-	@echo 'llvm-objcopy -O binary timer0 timer0.bin'
-	@$(LLVM_BIN)/llvm-objcopy -O binary $(TIMER0) $(TIMER0).bin
+	@echo 'llvm-objcopy -O binary usb_acm usb_acm.bin'
+	@$(LLVM_BIN)/llvm-objcopy -O binary $(USB_ACM) $(USB_ACM).bin
 	@echo '---'
 	@echo '# Signing .bin file:'
-	@python3 signer.py $(TIMER0).bin $(TIMER0).img
+	@python3 signer.py $(USB_ACM).bin $(USB_ACM).img
 	@echo '---'
 	@echo '# Packing signed blob as UF2:'
-	@python3 uf2ify.py $(TIMER0).img $(TIMER0).uf2
+	@python3 uf2ify.py $(USB_ACM).img $(USB_ACM).uf2
 	@echo '---'
-	cp $(TIMER0).uf2 examples/
-
-timer0-disassemble:
-	$(LLVM_BIN)/llvm-objdump -d $(TIMER0) | less
-
-timer0-bin-hex:
-	hexdump -C $(TIMER0).bin | less
-
-timer0-img-hex:
-	hexdump -C $(TIMER0).img | less
-
-timer0-uf2-hex:
-	hexdump -C $(TIMER0).uf2 | less
+	cp $(USB_ACM).uf2 examples/
 
 clean:
 	cargo clean

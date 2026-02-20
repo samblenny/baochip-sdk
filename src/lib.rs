@@ -15,6 +15,7 @@ pub mod log;
 pub mod ticktimer;
 pub mod timer0;
 pub mod uart;
+pub mod usb;
 
 use core::arch::asm;
 use core::panic::PanicInfo;
@@ -122,7 +123,7 @@ pub extern "C" fn dbs_uart_read_char() -> u8 {
         if let Some(byte) = uart::getc() {
             return byte;
         }
-        sleep(1);  // Sleep 1ms, which calls uart::tick() to service TX DMA
+        sleep(1); // Sleep 1ms, which calls uart::tick() to service TX DMA
     }
 }
 
